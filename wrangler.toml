@@ -1,0 +1,6 @@
+name = "andes-radar"
+compatibility_date = "2026-08-20"
+pages_build_output_dir = "."
+
+[observability]
+enabled = true
