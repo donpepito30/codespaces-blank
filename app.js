@@ -11,14 +11,21 @@ const normalize = (value) => value.toLowerCase().normalize('NFD').replace(/[\u03
 const knownSkills = [...new Set(demoJobs.flatMap((job) => job.skills).concat(['aws', 'docker', 'kubernetes', 'terraform', 'java', 'spring', 'sql', 'python', 'javascript', 'typescript', 'react', 'git', 'excel', 'power bi', 'figma', 'ux', 'ui', 'research', 'marketing', 'seo', 'analytics', 'scrum', 'agile', 'liderazgo', 'contabilidad', 'niif', 'tributacion', 'project management', 'psicologia', 'psicologia familiar', 'psicoterapia', 'terapia familiar', 'terapia de pareja', 'salud mental', 'intervencion en crisis', 'orientacion familiar', 'evaluacion psicologica', 'psicologia clinica', 'psicologia educativa', 'trabajo social', 'mediacion', 'violencia de genero', 'proteccion infantil', 'derechos humanos', 'primeros auxilios psicologicos', 'acompanamiento psicosocial', 'consejeria', 'investigacion cualitativa', 'recursos humanos']))];
 let catalog = [...demoJobs, ...Array.from({ length: 10 }, (_, index) => ({ ...demoJobs[index % demoJobs.length], title: `${demoJobs[index % demoJobs.length].title} · oportunidad ${index + 1}` }))];
 let cvText = '';
+let profileData = { skills: [], years: 0, education: [], languages: [], certifications: [] };
 let activeSource = 'all';
 let activeScope = 'all';
 const ecuadorLocations = ['Azuay', 'Bolivar', 'Canar', 'Carchi', 'Chimborazo', 'Cotopaxi', 'El Oro', 'Esmeraldas', 'Galapagos', 'Guayas', 'Imbabura', 'Loja', 'Los Rios', 'Manabi', 'Morona Santiago', 'Napo', 'Orellana', 'Pastaza', 'Pichincha', 'Santa Elena', 'Santo Domingo de los Tsachilas', 'Sucumbios', 'Tungurahua', 'Zamora Chinchipe', 'Quito', 'Guayaquil', 'Cuenca', 'Ambato', 'Manta', 'Machala', 'Portoviejo', 'Riobamba', 'Santo Domingo', 'Remoto'];
 
 function score(job) {
-  if (!cvText || !job.skills?.length) return null;
-  const text = normalize(cvText);
-  return Math.round(job.skills.filter((skill) => text.includes(normalize(skill))).length / job.skills.length * 100);
+  if (!cvText) return null;
+  const jobText = normalize(`${job.title} ${job.company} ${job.description || ''} ${(job.skills || []).join(' ')}`);
+  const requiredSkills = job.skills?.length ? job.skills : profileData.skills;
+  const skillScore = requiredSkills.length ? requiredSkills.filter((skill) => normalize(cvText).includes(normalize(skill))).length / requiredSkills.length : 0;
+  const contextScore = profileData.skills.filter((skill) => jobText.includes(normalize(skill))).length / Math.max(profileData.skills.length, 1);
+  const languageScore = profileData.languages.filter((language) => jobText.includes(normalize(language))).length ? 1 : 0;
+  const educationScore = profileData.education.some((item) => jobText.includes(normalize(item))) ? 1 : 0;
+  const certificationScore = profileData.certifications.some((item) => jobText.includes(normalize(item))) ? 1 : 0;
+  return Math.round((skillScore * 0.6 + contextScore * 0.2 + languageScore * 0.08 + educationScore * 0.07 + certificationScore * 0.05) * 100);
 }
 
 function render() {
@@ -129,8 +136,12 @@ function extractProfile(text) {
   const roles = roleWords.filter((word) => normalizedText.includes(normalize(word)));
   const role = roles[0];
   const context = ['familia', 'infancia', 'adolescencia', 'comunitario', 'clinica', 'educativa', 'ong', 'proyectos', 'emergencias', 'genero', 'refugiados', 'vulnerabilidad'].filter((word) => normalizedText.includes(normalize(word)));
-  const query = [...new Set([...roles.slice(0, 2), ...skills.slice(0, 5), ...context.slice(0, 3)])].join(' ') || 'empleo';
-  return { skills, role, query: query.slice(0, 150) };
+  const years = [...normalizedText.matchAll(/(\d+)\s*(anos|anios|years?)\b/g)].map((match) => Number(match[1])).sort((a, b) => b - a)[0] || 0;
+  const education = ['psicologia', 'psicologia clinica', 'psicologia educativa', 'trabajo social', 'sociologia', 'educacion', 'administracion', 'derecho', 'comunicacion'].filter((item) => normalizedText.includes(normalize(item)));
+  const languages = ['ingles', 'frances', 'portugues', 'aleman', 'italiano', 'kichwa'].filter((item) => normalizedText.includes(normalize(item)));
+  const certifications = normalizedText.split(/\n|[.;]/).map((line) => line.trim()).filter((line) => /certific|diplomado|curso|formacion|acredit/.test(line)).slice(0, 5);
+  const query = [...new Set([...roles.slice(0, 2), ...skills.slice(0, 6), ...context.slice(0, 3), ...languages.slice(0, 2), ...education.slice(0, 2), ...certifications.slice(0, 1)])].join(' ') || 'empleo';
+  return { skills, role, years, education, languages, certifications, query: query.slice(0, 150) };
 }
 
 $('#cvInput').addEventListener('change', async (event) => {
@@ -141,11 +152,12 @@ $('#cvInput').addEventListener('change', async (event) => {
   try {
     cvText = await readFile(file);
     const profile = extractProfile(cvText);
+    profileData = profile;
     $('#searchInput').value = profile.query;
     $('#uploadTitle').textContent = file.name;
     $('#uploadHint').textContent = `${profile.role ? `${profile.role} · ` : ''}perfil analizado localmente`;
     $('#cvResult').hidden = false;
-    $('#cvResult').innerHTML = `<h3>Perfil listo. Búsqueda ejecutada.</h3><p>Detectamos <strong>${profile.skills.length} habilidades</strong> y consultamos el alcance <strong>${activeScope === 'local' ? 'Ecuador' : activeScope === 'international' ? 'internacional' : 'completo'}</strong>.</p><div class="skills-found">${profile.skills.slice(0, 12).map((skill) => `<span>${skill}</span>`).join('')}</div>`;
+    $('#cvResult').innerHTML = `<h3>Perfil listo. Búsqueda ejecutada.</h3><p>Detectamos <strong>${profile.skills.length} habilidades</strong>, <strong>${profile.years || 'experiencia no especificada'} ${profile.years === 1 ? 'año' : 'años'}</strong>, ${profile.education.length ? `formación en <strong>${profile.education.join(', ')}</strong>` : 'formación por confirmar'} y ${profile.languages.length ? `idiomas: <strong>${profile.languages.join(', ')}</strong>` : 'sin idiomas identificados'}.</p>${profile.certifications.length ? `<p>Certificaciones o cursos: <strong>${profile.certifications.join('; ')}</strong></p>` : ''}<div class="skills-found">${profile.skills.slice(0, 12).map((skill) => `<span>${skill}</span>`).join('')}</div>`;
     $('#matchAside h3').textContent = 'Tu radar ya está personalizado.';
     $('#matchAside p').textContent = 'Las vacantes están ordenadas por afinidad con las habilidades detectadas.';
     await loadLiveJobs(activeScope);
