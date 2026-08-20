@@ -9,7 +9,8 @@ const demoJobs = [
 const $ = (selector) => document.querySelector(selector);
 const normalize = (value) => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const knownSkills = [...new Set(demoJobs.flatMap((job) => job.skills).concat(['aws', 'docker', 'kubernetes', 'terraform', 'java', 'spring', 'sql', 'python', 'javascript', 'typescript', 'react', 'git', 'excel', 'power bi', 'figma', 'ux', 'ui', 'research', 'marketing', 'seo', 'analytics', 'scrum', 'agile', 'liderazgo', 'contabilidad', 'niif', 'tributacion', 'project management', 'psicologia', 'psicologia familiar', 'psicoterapia', 'terapia familiar', 'terapia de pareja', 'salud mental', 'intervencion en crisis', 'orientacion familiar', 'evaluacion psicologica', 'psicologia clinica', 'psicologia educativa', 'trabajo social', 'mediacion', 'violencia de genero', 'proteccion infantil', 'derechos humanos', 'primeros auxilios psicologicos', 'acompanamiento psicosocial', 'consejeria', 'investigacion cualitativa', 'recursos humanos']))];
-let catalog = [...demoJobs, ...Array.from({ length: 10 }, (_, index) => ({ ...demoJobs[index % demoJobs.length], title: `${demoJobs[index % demoJobs.length].title} · oportunidad ${index + 1}` }))];
+const fallbackCatalog = [...demoJobs, ...Array.from({ length: 19 }, (_, index) => ({ ...demoJobs[index % demoJobs.length], title: `${demoJobs[index % demoJobs.length].title} · oportunidad ${index + 1}` }))];
+let catalog = [...fallbackCatalog];
 let cvText = '';
 let profileData = { skills: [], years: 0, education: [], languages: [], certifications: [] };
 let activeSource = 'all';
@@ -83,11 +84,14 @@ async function loadLiveJobs(scope = activeScope) {
     if (!response.ok) throw new Error('La API de fuentes no está disponible');
     const payload = await response.json();
     if (payload.jobs?.length) {
-      catalog = payload.jobs;
+      const liveJobs = payload.jobs;
+      const isPartial = scope === 'all' && liveJobs.length < fallbackCatalog.length;
+      catalog = isPartial ? [...liveJobs, ...fallbackCatalog].slice(0, fallbackCatalog.length) : liveJobs;
       activeSource = 'all';
       render();
+      if (isPartial) $('#resultCount').textContent = `${catalog.length} resultados · algunas fuentes no respondieron`;
     } else {
-      catalog = [];
+      catalog = [...fallbackCatalog];
       render();
     }
   } catch (error) {
