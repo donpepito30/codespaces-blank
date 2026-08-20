@@ -10,6 +10,7 @@ const SOURCE_GROUPS = {
   local: ['computrabajo', 'oas', 'unfpa'],
   international: ['impactpool', 'unjobnet', 'unicef']
 };
+const SKILL_TERMS = ['psicologia', 'psicologia familiar', 'psicoterapia', 'terapia familiar', 'salud mental', 'intervencion en crisis', 'orientacion familiar', 'evaluacion psicologica', 'psicologia clinica', 'psicologia educativa', 'trabajo social', 'mediacion', 'violencia de genero', 'proteccion infantil', 'derechos humanos', 'acompanamiento psicosocial', 'consejeria', 'recursos humanos', 'project management', 'excel', 'sql', 'python', 'javascript', 'react', 'java', 'aws', 'docker', 'marketing', 'seo', 'analytics', 'liderazgo'];
 
 function decodeHtml(value) {
   return value.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, "'").replace(/&#xF1;|&#241;/gi, 'ñ').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -29,7 +30,10 @@ function normalizePosting(posting, source, fallbackUrl) {
   const location = posting.jobLocation?.address || posting.jobLocation;
   const address = typeof location === 'string' ? location : [location?.addressLocality, location?.addressRegion].filter(Boolean).join(', ');
   const company = typeof posting.hiringOrganization === 'string' ? posting.hiringOrganization : posting.hiringOrganization?.name;
-  return { title: decodeHtml(posting.title || 'Vacante'), company: decodeHtml(company || source.label), location: decodeHtml(address || 'Ecuador'), mode: posting.jobLocationType === 'TELECOMMUTE' ? 'Remoto' : 'Presencial', source: source.label, skills: [], posted: posting.datePosted || 'Reciente', url: posting.url || fallbackUrl, description: decodeHtml(posting.description || '').slice(0, 500) };
+  const description = decodeHtml(posting.description || '');
+  const searchable = `${posting.title || ''} ${description}`.toLowerCase();
+  const skills = SKILL_TERMS.filter((skill) => searchable.includes(skill));
+  return { title: decodeHtml(posting.title || 'Vacante'), company: decodeHtml(company || source.label), location: decodeHtml(address || 'Ecuador'), mode: posting.jobLocationType === 'TELECOMMUTE' ? 'Remoto' : 'Presencial', source: source.label, skills, posted: posting.datePosted || 'Reciente', url: posting.url || fallbackUrl, description: description.slice(0, 500) };
 }
 
 async function fetchText(url) {
@@ -88,7 +92,7 @@ export async function onRequestGet(context) {
   const params = new URL(context.request.url).searchParams;
   const query = params.get('q')?.trim() || 'empleo';
   const requested = params.get('source') || 'all';
-  if (query.length > 80) return Response.json({ error: 'La búsqueda es demasiado larga.' }, { status: 400 });
+  if (query.length > 160) return Response.json({ error: 'La búsqueda es demasiado larga.' }, { status: 400 });
   const keys = requested === 'all' ? ['computrabajo', ...Object.keys(SOURCES)] : SOURCE_GROUPS[requested] || [requested];
   if (!SOURCE_GROUPS[requested] && requested !== 'all' && !SOURCES[requested] && requested !== 'computrabajo') return Response.json({ error: 'Fuente no soportada.' }, { status: 400 });
   const results = await Promise.allSettled(keys.map((key) => key === 'computrabajo' ? fetchComputrabajo(query) : fetchSource(key, query)));

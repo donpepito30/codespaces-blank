@@ -8,11 +8,12 @@ const demoJobs = [
 
 const $ = (selector) => document.querySelector(selector);
 const normalize = (value) => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-const knownSkills = [...new Set(demoJobs.flatMap((job) => job.skills).concat(['aws', 'docker', 'kubernetes', 'terraform', 'java', 'spring', 'sql', 'python', 'javascript', 'typescript', 'react', 'git', 'excel', 'power bi', 'figma', 'ux', 'ui', 'research', 'marketing', 'seo', 'analytics', 'scrum', 'agile', 'liderazgo', 'contabilidad', 'niif', 'tributacion', 'project management']))];
+const knownSkills = [...new Set(demoJobs.flatMap((job) => job.skills).concat(['aws', 'docker', 'kubernetes', 'terraform', 'java', 'spring', 'sql', 'python', 'javascript', 'typescript', 'react', 'git', 'excel', 'power bi', 'figma', 'ux', 'ui', 'research', 'marketing', 'seo', 'analytics', 'scrum', 'agile', 'liderazgo', 'contabilidad', 'niif', 'tributacion', 'project management', 'psicologia', 'psicologia familiar', 'psicoterapia', 'terapia familiar', 'terapia de pareja', 'salud mental', 'intervencion en crisis', 'orientacion familiar', 'evaluacion psicologica', 'psicologia clinica', 'psicologia educativa', 'trabajo social', 'mediacion', 'violencia de genero', 'proteccion infantil', 'derechos humanos', 'primeros auxilios psicologicos', 'acompanamiento psicosocial', 'consejeria', 'investigacion cualitativa', 'recursos humanos']))];
 let catalog = [...demoJobs, ...Array.from({ length: 10 }, (_, index) => ({ ...demoJobs[index % demoJobs.length], title: `${demoJobs[index % demoJobs.length].title} · oportunidad ${index + 1}` }))];
 let cvText = '';
 let activeSource = 'all';
 let activeScope = 'all';
+const ecuadorLocations = ['Azuay', 'Bolivar', 'Canar', 'Carchi', 'Chimborazo', 'Cotopaxi', 'El Oro', 'Esmeraldas', 'Galapagos', 'Guayas', 'Imbabura', 'Loja', 'Los Rios', 'Manabi', 'Morona Santiago', 'Napo', 'Orellana', 'Pastaza', 'Pichincha', 'Santa Elena', 'Santo Domingo de los Tsachilas', 'Sucumbios', 'Tungurahua', 'Zamora Chinchipe', 'Quito', 'Guayaquil', 'Cuenca', 'Ambato', 'Manta', 'Machala', 'Portoviejo', 'Riobamba', 'Santo Domingo', 'Remoto'];
 
 function score(job) {
   if (!cvText || !job.skills?.length) return null;
@@ -27,7 +28,7 @@ function render() {
   const filtered = catalog
     .filter((job) => (activeSource === 'all' || normalize(job.source) === normalize(activeSource)))
     .filter((job) => !term || normalize(`${job.title} ${job.company} ${job.location} ${job.skills?.join(' ')}`).includes(term))
-    .filter((job) => location === 'all' || job.location.includes(location))
+    .filter((job) => location === 'all' || normalize(job.location).includes(normalize(location)))
     .filter((job) => mode === 'all' || job.mode === mode)
     .sort((first, second) => (score(second) || 0) - (score(first) || 0));
 
@@ -39,6 +40,17 @@ function render() {
     const match = score(job);
     return `<article class="job-card ${cvText ? 'has-cv' : ''}"><div class="job-card-top"><div><h3>${job.title}</h3><p class="company">${job.company}</p></div><div class="job-source">${job.source}<br><span class="match-score">${match ?? 0}% match</span></div></div><div class="job-meta"><span>⌖ ${job.location}</span><span>◷ ${job.mode}</span><span>${job.posted}</span><a class="apply-link" href="${job.url}" target="_blank" rel="noreferrer">Ver oferta ↗</a></div><div class="job-tags">${(job.skills || []).map((skill) => `<span>${skill}</span>`).join('')}</div></article>`;
   }).join('') : '<div class="empty">No encontramos vacantes con esos filtros. Prueba otra combinación.</div>';
+}
+
+function populateLocations() {
+  const select = $('#locationFilter');
+  select.innerHTML = '<option value="all">Todas las provincias y ciudades</option>';
+  ecuadorLocations.forEach((location) => {
+    const option = document.createElement('option');
+    option.value = location;
+    option.textContent = location;
+    select.append(option);
+  });
 }
 
 function addScopeControls() {
@@ -113,10 +125,12 @@ async function readFile(file) {
 function extractProfile(text) {
   const normalizedText = normalize(text);
   const skills = knownSkills.filter((skill) => normalizedText.includes(normalize(skill)));
-  const roleWords = ['analista', 'ingeniero', 'developer', 'desarrollador', 'coordinador', 'manager', 'especialista', 'asistente', 'consultor', 'oficial', 'programme officer', 'administrador'];
-  const role = roleWords.find((word) => normalizedText.includes(normalize(word)));
-  const query = [role, ...skills.slice(0, 4)].filter(Boolean).join(' ') || 'empleo';
-  return { skills, role, query };
+  const roleWords = ['psicologa familiar', 'psicologo familiar', 'psicologa', 'psicologo', 'trabajador social', 'orientador familiar', 'terapeuta', 'analista', 'ingeniero', 'developer', 'desarrollador', 'coordinador', 'manager', 'especialista', 'asistente', 'consultor', 'oficial', 'programme officer', 'administrador'];
+  const roles = roleWords.filter((word) => normalizedText.includes(normalize(word)));
+  const role = roles[0];
+  const context = ['familia', 'infancia', 'adolescencia', 'comunitario', 'clinica', 'educativa', 'ong', 'proyectos', 'emergencias', 'genero', 'refugiados', 'vulnerabilidad'].filter((word) => normalizedText.includes(normalize(word)));
+  const query = [...new Set([...roles.slice(0, 2), ...skills.slice(0, 5), ...context.slice(0, 3)])].join(' ') || 'empleo';
+  return { skills, role, query: query.slice(0, 150) };
 }
 
 $('#cvInput').addEventListener('change', async (event) => {
@@ -143,6 +157,7 @@ $('#cvInput').addEventListener('change', async (event) => {
   }
 });
 
+populateLocations();
 addScopeControls();
 $('#heroCount').textContent = catalog.length;
 render();

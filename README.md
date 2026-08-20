@@ -12,6 +12,8 @@ La búsqueda en vivo usa una Cloudflare Pages Function en `/api/search` para con
 4. Puede elegir `Ecuador`, `Internacionales` o `Todas las fuentes` antes o después de cargar el CV.
 5. Los resultados se ordenan por coincidencia cuando la fuente aporta habilidades; la postulación siempre se completa en el portal original.
 
+El CV se analiza localmente con un diccionario ampliable de profesiones, habilidades y contextos. Para perfiles sociales reconoce, entre otros, psicología familiar, psicoterapia, terapia familiar, salud mental, intervención en crisis, orientación familiar, protección infantil y acompañamiento psicosocial. No se envía el archivo a las fuentes externas.
+
 ## Ejecutar localmente
 
 ```bash
