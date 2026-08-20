@@ -43,4 +43,4 @@ npx wrangler pages dev .
 
 ## Fuentes y alcance
 
-Las fuentes conectadas son Computrabajo, Impactpool, UNJobNet, OEA/CIDH, UNICEF y UNFPA Ecuador. ReliefWeb fue descartada del scraping HTML porque AWS WAF presenta un desafío; debe integrarse mediante su API pública. Indeed, Buscojobs y Jooble también requieren API, feed o autorización del proveedor. No se deben evadir CAPTCHA, Cloudflare ni AWS WAF. La función usa caché HTTP de 15 minutos y limita el detalle a 10 ofertas por fuente y consulta para reducir carga sobre los portales.
+Las fuentes conectadas son Computrabajo, Impactpool, UNJobNet, OEA/CIDH, UNICEF y UNFPA Ecuador. ReliefWeb fue descartada del scraping HTML porque AWS WAF presenta un desafío; debe integrarse mediante su API pública. Indeed, Buscojobs y Jooble también requieren API, feed o autorización del proveedor. No se deben evadir CAPTCHA, Cloudflare ni AWS WAF. La función usa caché edge de Cloudflare durante 4 horas (`14.400` segundos) por consulta y alcance. `X-Andes-Cache: HIT` indica una respuesta cacheada y `MISS` una actualización. Cada actualización limita el detalle a 10 ofertas por fuente y consulta.

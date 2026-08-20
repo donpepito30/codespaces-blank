@@ -95,8 +95,17 @@ export async function onRequestGet(context) {
   if (query.length > 160) return Response.json({ error: 'La búsqueda es demasiado larga.' }, { status: 400 });
   const keys = requested === 'all' ? ['computrabajo', ...Object.keys(SOURCES)] : SOURCE_GROUPS[requested] || [requested];
   if (!SOURCE_GROUPS[requested] && requested !== 'all' && !SOURCES[requested] && requested !== 'computrabajo') return Response.json({ error: 'Fuente no soportada.' }, { status: 400 });
+
+  const cacheUrl = new URL(context.request.url);
+  cacheUrl.search = `?q=${encodeURIComponent(query.toLowerCase())}&source=${encodeURIComponent(requested)}`;
+  const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
+  const edgeCache = caches.default;
+  const cached = await edgeCache.match(cacheKey);
+  if (cached) return new Response(cached.body, { status: cached.status, headers: { ...Object.fromEntries(cached.headers), 'X-Andes-Cache': 'HIT' } });
   const results = await Promise.allSettled(keys.map((key) => key === 'computrabajo' ? fetchComputrabajo(query) : fetchSource(key, query)));
   const jobs = results.flatMap((result) => result.status === 'fulfilled' ? result.value : []);
   const errors = results.map((result, index) => result.status === 'rejected' ? { source: keys[index], error: result.reason.message } : null).filter(Boolean);
-  return Response.json({ query, jobs, errors, fetchedAt: new Date().toISOString() }, { headers: { 'Cache-Control': 'public, max-age=300, s-maxage=900' } });
+  const response = Response.json({ query, jobs, errors, fetchedAt: new Date().toISOString(), refreshAfter: new Date(Date.now() + 14400000).toISOString() }, { headers: { 'Cache-Control': 'public, max-age=60, s-maxage=14400', 'X-Andes-Cache': 'MISS' } });
+  context.waitUntil(edgeCache.put(cacheKey, response.clone()));
+  return response;
 }
