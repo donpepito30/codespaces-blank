@@ -6,6 +6,10 @@ const SOURCES = {
   unicef: { label: 'UNICEF', origin: 'https://jobs.unicef.org', search: 'https://jobs.unicef.org/en-us/listing/', pattern: /\/en-us\/job\/\d+\/[^"'#?]+/i },
   unfpa: { label: 'UNFPA Ecuador', origin: 'https://ecuador.unfpa.org', search: 'https://ecuador.unfpa.org/es/vacancies?field_date_value=2026&title=', pattern: /\/es\/vacancies\/[^"'#?]+/i }
 };
+const SOURCE_GROUPS = {
+  local: ['computrabajo', 'oas', 'unfpa'],
+  international: ['impactpool', 'unjobnet', 'unicef']
+};
 
 function decodeHtml(value) {
   return value.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, "'").replace(/&#xF1;|&#241;/gi, 'ñ').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -85,8 +89,8 @@ export async function onRequestGet(context) {
   const query = params.get('q')?.trim() || 'empleo';
   const requested = params.get('source') || 'all';
   if (query.length > 80) return Response.json({ error: 'La búsqueda es demasiado larga.' }, { status: 400 });
-  const keys = requested === 'all' ? ['computrabajo', ...Object.keys(SOURCES)] : [requested];
-  if (requested !== 'all' && !SOURCES[requested] && requested !== 'computrabajo') return Response.json({ error: 'Fuente no soportada.' }, { status: 400 });
+  const keys = requested === 'all' ? ['computrabajo', ...Object.keys(SOURCES)] : SOURCE_GROUPS[requested] || [requested];
+  if (!SOURCE_GROUPS[requested] && requested !== 'all' && !SOURCES[requested] && requested !== 'computrabajo') return Response.json({ error: 'Fuente no soportada.' }, { status: 400 });
   const results = await Promise.allSettled(keys.map((key) => key === 'computrabajo' ? fetchComputrabajo(query) : fetchSource(key, query)));
   const jobs = results.flatMap((result) => result.status === 'fulfilled' ? result.value : []);
   const errors = results.map((result, index) => result.status === 'rejected' ? { source: keys[index], error: result.reason.message } : null).filter(Boolean);

@@ -4,6 +4,14 @@ Aplicación para explorar oportunidades públicas de trabajo en Ecuador y coteja
 
 La búsqueda en vivo usa una Cloudflare Pages Function en `/api/search` para consultar Computrabajo, Impactpool, UNJobNet, OEA/CIDH, UNICEF y UNFPA Ecuador. Cada adaptador extrae enlaces públicos y, cuando existe, datos `JobPosting` en JSON-LD. Si una fuente no responde, las demás continúan disponibles y la interfaz conserva un catálogo local de respaldo para desarrollo.
 
+## Flujo del usuario
+
+1. Puede escribir un cargo, habilidad o empresa y ejecutar una búsqueda manual.
+2. Puede cargar un CV en PDF, TXT o MD; el análisis se hace localmente en el navegador.
+3. Andes detecta habilidades y un rol aproximado, genera una consulta y ejecuta la búsqueda automáticamente.
+4. Puede elegir `Ecuador`, `Internacionales` o `Todas las fuentes` antes o después de cargar el CV.
+5. Los resultados se ordenan por coincidencia cuando la fuente aporta habilidades; la postulación siempre se completa en el portal original.
+
 ## Ejecutar localmente
 
 ```bash

@@ -1,18 +1,149 @@
-const jobs=[
-{title:'Analista de datos',company:'Banco Pichincha',location:'Quito',mode:'Híbrido',source:'LinkedIn público',skills:['sql','python','excel','power bi'],posted:'Hace 2 días',url:'https://www.linkedin.com/jobs/'},
-{title:'Frontend Developer',company:'Kushki',location:'Quito',mode:'Remoto',source:'Multitrabajos',skills:['javascript','react','typescript','git'],posted:'Hace 1 día',url:'https://www.multitrabajos.com/'},
-{title:'Especialista de marketing digital',company:'Pronaca',location:'Guayaquil',mode:'Presencial',source:'Socio Empleo',skills:['marketing','seo','google ads','analytics'],posted:'Hace 3 días',url:'https://encuentraempleo.trabajo.gob.ec/'},
-{title:'Ingeniero/a de software',company:'PayPhone',location:'Cuenca',mode:'Híbrido',source:'LinkedIn público',skills:['java','spring','aws','docker'],posted:'Hace 4 días',url:'https://www.linkedin.com/jobs/'},
-{title:'Coordinador de proyectos',company:'Grupo Nobis',location:'Guayaquil',mode:'Presencial',source:'Multitrabajos',skills:['project management','scrum','excel','liderazgo'],posted:'Hace 5 días',url:'https://www.multitrabajos.com/'},
-{title:'Diseñador UX/UI',company:'Yagé',location:'Remoto',mode:'Remoto',source:'Multitrabajos',skills:['figma','ux','ui','research'],posted:'Hace 6 días',url:'https://www.multitrabajos.com/'},
-{title:'Contador/a senior',company:'Corporación Favorita',location:'Quito',mode:'Presencial',source:'Socio Empleo',skills:['contabilidad','niif','excel','tributación'],posted:'Hace 1 semana',url:'https://encuentraempleo.trabajo.gob.ec/'},
-{title:'Product Manager',company:'Banco Guayaquil',location:'Guayaquil',mode:'Híbrido',source:'LinkedIn público',skills:['product management','agile','analytics','liderazgo'],posted:'Hace 1 semana',url:'https://www.linkedin.com/jobs/'},
-{title:'DevOps Engineer',company:'Tipti',location:'Quito',mode:'Remoto',source:'Multitrabajos',skills:['aws','kubernetes','docker','terraform'],posted:'Hace 1 semana',url:'https://www.multitrabajos.com/'},
-{title:'Asistente administrativo',company:'Ministerio del Trabajo',location:'Quito',mode:'Presencial',source:'Socio Empleo',skills:['excel','organización','atención al cliente'],posted:'Hace 2 semanas',url:'https://encuentraempleo.trabajo.gob.ec/'}];
-let catalog=[...jobs,...Array.from({length:14},(_,i)=>({...jobs[i%jobs.length],title:`${jobs[i%jobs.length].title} · oportunidad ${i+1}`,posted:'Hace 2 semanas'}))];let cvText='',activeSource='all';const $=s=>document.querySelector(s);const normalize=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-function score(job){if(!cvText)return null;const text=normalize(cvText);return Math.round(job.skills.filter(skill=>text.includes(normalize(skill))).length/job.skills.length*100)}
-function render(){const term=normalize($('#searchInput').value),location=$('#locationFilter').value,mode=$('#modeFilter').value;const filtered=catalog.filter(job=>(activeSource==='all'||normalize(job.source)===normalize(activeSource))&&(!term||normalize(`${job.title} ${job.company} ${job.skills.join(' ')}`).includes(term))&&(location==='all'||job.location.includes(location))&&(mode==='all'||job.mode===mode)).sort((a,b)=>(score(b)||0)-(score(a)||0));$('#resultCount').textContent=`${filtered.length} resultado${filtered.length===1?'':'s'}`;$('#allCount').textContent=catalog.length;$('#computrabajoCount').textContent=catalog.filter(job=>job.source==='Computrabajo').length;$('#heroCount').textContent=catalog.length;$('#jobsList').innerHTML=filtered.length?filtered.map(job=>{const match=score(job);return `<article class="job-card ${cvText?'has-cv':''}"><div class="job-card-top"><div><h3>${job.title}</h3><p class="company">${job.company}</p></div><div class="job-source">${job.source}<br><span class="match-score">${match}% match</span></div></div><div class="job-meta"><span>⌖ ${job.location}</span><span>◷ ${job.mode}</span><span>${job.posted}</span><a class="apply-link" href="${job.url}" target="_blank" rel="noreferrer">Ver oferta ↗</a></div><div class="job-tags">${job.skills.map(skill=>`<span>${skill}</span>`).join('')}</div></article>`}).join(''):'<div class="empty">No encontramos vacantes con esos filtros. Prueba otra combinación.</div>'}
-async function loadLiveJobs(source='all'){const term=$('#searchInput').value.trim()||'empleo';try{const response=await fetch(`/api/search?q=${encodeURIComponent(term)}&source=${encodeURIComponent(source)}`);if(!response.ok)throw new Error('La API de fuentes no está disponible');const payload=await response.json();if(payload.jobs?.length){catalog=payload.jobs;activeSource='all';render();}else if(source!=='all'){$('#jobsList').innerHTML='<div class="empty">Esta fuente no devolvió vacantes para la búsqueda actual.</div>';$('#resultCount').textContent='0 resultados'}}catch(error){if(source==='all')$('#resultCount').textContent=`${catalog.length} resultados locales`;console.warn(error.message)}}
-function openPicker(){ $('#cvInput').click() }['#topUpload','#heroUpload','#asideUpload','#cardUpload'].forEach(id=>$(id).addEventListener('click',openPicker));['#searchInput','#locationFilter','#modeFilter'].forEach(id=>$(id).addEventListener('input',render));$('#clearFilters').addEventListener('click',()=>{$('#searchInput').value='';$('#locationFilter').value='all';$('#modeFilter').value='all';activeSource='all';document.querySelectorAll('.source-chip').forEach((el,i)=>el.classList.toggle('active',i===0));render();loadLiveJobs()});document.querySelectorAll('.source-chip').forEach(chip=>chip.addEventListener('click',()=>{activeSource=chip.dataset.source;document.querySelectorAll('.source-chip').forEach(el=>el.classList.toggle('active',el===chip));loadLiveJobs(activeSource)}));
-async function readFile(file){if(file.type==='application/pdf'){const pdfjs=await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs');pdfjs.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';const pdf=await pdfjs.getDocument({data:await file.arrayBuffer()}).promise;let text='';for(let page=1;page<=pdf.numPages;page++){const content=await(await pdf.getPage(page)).getTextContent();text+=content.items.map(item=>item.str).join(' ')+' '}return text}return file.text()}
-$('#cvInput').addEventListener('change',async event=>{const file=event.target.files[0];if(!file)return;if(file.size>5*1024*1024){alert('El archivo supera los 5 MB.');return}$('#uploadTitle').textContent='Analizando tu CV...';try{cvText=await readFile(file);const matches=catalog.map(score).filter(Boolean);const average=Math.round(matches.reduce((a,b)=>a+b,0)/(matches.length||1));const text=normalize(cvText),known=[...new Set(catalog.flatMap(job=>job.skills))],found=known.filter(skill=>text.includes(normalize(skill)));$('#uploadTitle').textContent=file.name;$('#uploadHint').textContent='CV analizado localmente';$('#cvResult').hidden=false;$('#cvResult').innerHTML=`<h3>Tu perfil está listo para comparar.</h3><p>Detectamos <strong>${found.length} habilidades</strong> y una afinidad promedio de <strong>${average}%</strong> en las vacantes disponibles.</p><div class="skills-found">${found.slice(0,12).map(skill=>`<span>${skill}</span>`).join('')}</div>`;$('#matchAside h3').textContent='Tu radar ya está personalizado.';$('#matchAside p').textContent='Las vacantes ahora están ordenadas por afinidad con tu perfil.';render();$('#vacantes').scrollIntoView({behavior:'smooth'})}catch(error){$('#uploadTitle').textContent='No pudimos leer ese archivo';$('#uploadHint').textContent='Prueba con PDF, TXT o MD';console.error(error)}});$('#heroCount').textContent=catalog.length;render();loadLiveJobs();
+const demoJobs = [
+  { title: 'Analista de datos', company: 'Banco Pichincha', location: 'Quito', mode: 'Híbrido', source: 'Computrabajo', skills: ['sql', 'python', 'excel', 'power bi'], posted: 'Hace 2 días', url: 'https://ec.computrabajo.com/' },
+  { title: 'Frontend Developer', company: 'Kushki', location: 'Quito', mode: 'Remoto', source: 'Computrabajo', skills: ['javascript', 'react', 'typescript', 'git'], posted: 'Hace 1 día', url: 'https://ec.computrabajo.com/' },
+  { title: 'Especialista de marketing digital', company: 'Pronaca', location: 'Guayaquil', mode: 'Presencial', source: 'Computrabajo', skills: ['marketing', 'seo', 'google ads', 'analytics'], posted: 'Hace 3 días', url: 'https://ec.computrabajo.com/' },
+  { title: 'Ingeniero/a de software', company: 'PayPhone', location: 'Cuenca', mode: 'Híbrido', source: 'Computrabajo', skills: ['java', 'spring', 'aws', 'docker'], posted: 'Hace 4 días', url: 'https://ec.computrabajo.com/' },
+  { title: 'Coordinador de proyectos', company: 'Grupo Nobis', location: 'Guayaquil', mode: 'Presencial', source: 'Computrabajo', skills: ['project management', 'scrum', 'excel', 'liderazgo'], posted: 'Hace 5 días', url: 'https://ec.computrabajo.com/' }
+];
+
+const $ = (selector) => document.querySelector(selector);
+const normalize = (value) => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const knownSkills = [...new Set(demoJobs.flatMap((job) => job.skills).concat(['aws', 'docker', 'kubernetes', 'terraform', 'java', 'spring', 'sql', 'python', 'javascript', 'typescript', 'react', 'git', 'excel', 'power bi', 'figma', 'ux', 'ui', 'research', 'marketing', 'seo', 'analytics', 'scrum', 'agile', 'liderazgo', 'contabilidad', 'niif', 'tributacion', 'project management']))];
+let catalog = [...demoJobs, ...Array.from({ length: 10 }, (_, index) => ({ ...demoJobs[index % demoJobs.length], title: `${demoJobs[index % demoJobs.length].title} · oportunidad ${index + 1}` }))];
+let cvText = '';
+let activeSource = 'all';
+let activeScope = 'all';
+
+function score(job) {
+  if (!cvText || !job.skills?.length) return null;
+  const text = normalize(cvText);
+  return Math.round(job.skills.filter((skill) => text.includes(normalize(skill))).length / job.skills.length * 100);
+}
+
+function render() {
+  const term = normalize($('#searchInput').value);
+  const location = $('#locationFilter').value;
+  const mode = $('#modeFilter').value;
+  const filtered = catalog
+    .filter((job) => (activeSource === 'all' || normalize(job.source) === normalize(activeSource)))
+    .filter((job) => !term || normalize(`${job.title} ${job.company} ${job.location} ${job.skills?.join(' ')}`).includes(term))
+    .filter((job) => location === 'all' || job.location.includes(location))
+    .filter((job) => mode === 'all' || job.mode === mode)
+    .sort((first, second) => (score(second) || 0) - (score(first) || 0));
+
+  $('#resultCount').textContent = `${filtered.length} resultado${filtered.length === 1 ? '' : 's'}`;
+  $('#allCount').textContent = catalog.length;
+  $('#computrabajoCount').textContent = catalog.filter((job) => job.source === 'Computrabajo').length;
+  $('#heroCount').textContent = catalog.length;
+  $('#jobsList').innerHTML = filtered.length ? filtered.map((job) => {
+    const match = score(job);
+    return `<article class="job-card ${cvText ? 'has-cv' : ''}"><div class="job-card-top"><div><h3>${job.title}</h3><p class="company">${job.company}</p></div><div class="job-source">${job.source}<br><span class="match-score">${match ?? 0}% match</span></div></div><div class="job-meta"><span>⌖ ${job.location}</span><span>◷ ${job.mode}</span><span>${job.posted}</span><a class="apply-link" href="${job.url}" target="_blank" rel="noreferrer">Ver oferta ↗</a></div><div class="job-tags">${(job.skills || []).map((skill) => `<span>${skill}</span>`).join('')}</div></article>`;
+  }).join('') : '<div class="empty">No encontramos vacantes con esos filtros. Prueba otra combinación.</div>';
+}
+
+function addScopeControls() {
+  const sourceStrip = document.querySelector('.source-strip');
+  const scopeStrip = document.createElement('div');
+  scopeStrip.className = 'scope-strip';
+  scopeStrip.innerHTML = '<span>ALCANCE</span><button class="scope-chip active" data-scope="all">Todas las fuentes</button><button class="scope-chip" data-scope="local">Ecuador</button><button class="scope-chip" data-scope="international">Internacionales</button>';
+  sourceStrip.before(scopeStrip);
+  scopeStrip.querySelectorAll('.scope-chip').forEach((chip) => chip.addEventListener('click', () => {
+    activeScope = chip.dataset.scope;
+    activeSource = 'all';
+    document.querySelectorAll('.scope-chip').forEach((item) => item.classList.toggle('active', item === chip));
+    document.querySelectorAll('.source-chip').forEach((item, index) => item.classList.toggle('active', index === 0));
+    loadLiveJobs(activeScope);
+  }));
+}
+
+async function loadLiveJobs(scope = activeScope) {
+  const query = $('#searchInput').value.trim() || 'empleo';
+  $('#resultCount').textContent = 'Consultando fuentes...';
+  try {
+    const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&source=${encodeURIComponent(scope)}`);
+    if (!response.ok) throw new Error('La API de fuentes no está disponible');
+    const payload = await response.json();
+    if (payload.jobs?.length) {
+      catalog = payload.jobs;
+      activeSource = 'all';
+      render();
+    } else {
+      catalog = [];
+      render();
+    }
+  } catch (error) {
+    $('#resultCount').textContent = `${catalog.length} resultados locales de respaldo`;
+    console.warn(error.message);
+  }
+}
+
+function openPicker() { $('#cvInput').click(); }
+['#topUpload', '#heroUpload', '#asideUpload', '#cardUpload'].forEach((id) => $(id).addEventListener('click', openPicker));
+['#searchInput', '#locationFilter', '#modeFilter'].forEach((id) => $(id).addEventListener('input', render));
+$('#searchInput').addEventListener('keydown', (event) => { if (event.key === 'Enter') loadLiveJobs(); });
+$('#clearFilters').addEventListener('click', () => {
+  $('#searchInput').value = '';
+  $('#locationFilter').value = 'all';
+  $('#modeFilter').value = 'all';
+  activeSource = 'all';
+  document.querySelectorAll('.source-chip').forEach((item, index) => item.classList.toggle('active', index === 0));
+  render();
+  loadLiveJobs();
+});
+document.querySelectorAll('.source-chip').forEach((chip) => chip.addEventListener('click', () => {
+  activeSource = chip.dataset.source;
+  document.querySelectorAll('.source-chip').forEach((item) => item.classList.toggle('active', item === chip));
+  loadLiveJobs(activeSource);
+}));
+
+async function readFile(file) {
+  if (file.type !== 'application/pdf') return file.text();
+  const pdfjs = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs');
+  pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
+  const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+  let text = '';
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+    text += `${content.items.map((item) => item.str).join(' ')} `;
+  }
+  return text;
+}
+
+function extractProfile(text) {
+  const normalizedText = normalize(text);
+  const skills = knownSkills.filter((skill) => normalizedText.includes(normalize(skill)));
+  const roleWords = ['analista', 'ingeniero', 'developer', 'desarrollador', 'coordinador', 'manager', 'especialista', 'asistente', 'consultor', 'oficial', 'programme officer', 'administrador'];
+  const role = roleWords.find((word) => normalizedText.includes(normalize(word)));
+  const query = [role, ...skills.slice(0, 4)].filter(Boolean).join(' ') || 'empleo';
+  return { skills, role, query };
+}
+
+$('#cvInput').addEventListener('change', async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { alert('El archivo supera los 5 MB.'); return; }
+  $('#uploadTitle').textContent = 'Analizando tu CV...';
+  try {
+    cvText = await readFile(file);
+    const profile = extractProfile(cvText);
+    $('#searchInput').value = profile.query;
+    $('#uploadTitle').textContent = file.name;
+    $('#uploadHint').textContent = `${profile.role ? `${profile.role} · ` : ''}perfil analizado localmente`;
+    $('#cvResult').hidden = false;
+    $('#cvResult').innerHTML = `<h3>Perfil listo. Búsqueda ejecutada.</h3><p>Detectamos <strong>${profile.skills.length} habilidades</strong> y consultamos el alcance <strong>${activeScope === 'local' ? 'Ecuador' : activeScope === 'international' ? 'internacional' : 'completo'}</strong>.</p><div class="skills-found">${profile.skills.slice(0, 12).map((skill) => `<span>${skill}</span>`).join('')}</div>`;
+    $('#matchAside h3').textContent = 'Tu radar ya está personalizado.';
+    $('#matchAside p').textContent = 'Las vacantes están ordenadas por afinidad con las habilidades detectadas.';
+    await loadLiveJobs(activeScope);
+    $('#vacantes').scrollIntoView({ behavior: 'smooth' });
+  } catch (error) {
+    $('#uploadTitle').textContent = 'No pudimos leer ese archivo';
+    $('#uploadHint').textContent = 'Prueba con PDF, TXT o MD';
+    console.error(error);
+  }
+});
+
+addScopeControls();
+$('#heroCount').textContent = catalog.length;
+render();
+loadLiveJobs();
