@@ -15,6 +15,7 @@ let cvText = '';
 let profileData = { skills: [], years: 0, education: [], languages: [], certifications: [] };
 let activeSource = 'all';
 let activeScope = 'all';
+let liveQuery = null;
 const ecuadorLocations = ['Azuay', 'Bolivar', 'Canar', 'Carchi', 'Chimborazo', 'Cotopaxi', 'El Oro', 'Esmeraldas', 'Galapagos', 'Guayas', 'Imbabura', 'Loja', 'Los Rios', 'Manabi', 'Morona Santiago', 'Napo', 'Orellana', 'Pastaza', 'Pichincha', 'Santa Elena', 'Santo Domingo de los Tsachilas', 'Sucumbios', 'Tungurahua', 'Zamora Chinchipe', 'Quito', 'Guayaquil', 'Cuenca', 'Ambato', 'Manta', 'Machala', 'Portoviejo', 'Riobamba', 'Santo Domingo', 'Remoto'];
 
 function score(job) {
@@ -35,7 +36,7 @@ function render() {
   const mode = $('#modeFilter').value;
   const filtered = catalog
     .filter((job) => (activeSource === 'all' || normalize(job.source) === normalize(activeSource)))
-    .filter((job) => !term || normalize(`${job.title} ${job.company} ${job.location} ${job.description || ''} ${job.skills?.join(' ')}`).includes(term))
+    .filter((job) => !term || liveQuery === term || normalize(`${job.title} ${job.company} ${job.location} ${job.description || ''} ${job.skills?.join(' ')}`).includes(term))
     .filter((job) => location === 'all' || normalize(job.location).includes(normalize(location)))
     .filter((job) => mode === 'all' || job.mode === mode)
     .sort((first, second) => (score(second) || 0) - (score(first) || 0));
@@ -78,6 +79,7 @@ function addScopeControls() {
 
 async function loadLiveJobs(scope = activeScope) {
   const query = $('#searchInput').value.trim() || 'empleo';
+  liveQuery = normalize(query);
   $('#resultCount').textContent = 'Consultando fuentes...';
   try {
     const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&source=${encodeURIComponent(scope)}`);
@@ -102,12 +104,16 @@ async function loadLiveJobs(scope = activeScope) {
 
 function openPicker() { $('#cvInput').click(); }
 ['#topUpload', '#heroUpload', '#asideUpload', '#cardUpload'].forEach((id) => $(id).addEventListener('click', openPicker));
-['#searchInput', '#locationFilter', '#modeFilter'].forEach((id) => $(id).addEventListener('input', render));
+['#searchInput', '#locationFilter', '#modeFilter'].forEach((id) => $(id).addEventListener('input', () => {
+  if (id === '#searchInput') liveQuery = null;
+  render();
+}));
 $('#searchInput').addEventListener('keydown', (event) => { if (event.key === 'Enter') loadLiveJobs(); });
 $('#clearFilters').addEventListener('click', () => {
   $('#searchInput').value = '';
   $('#locationFilter').value = 'all';
   $('#modeFilter').value = 'all';
+  liveQuery = null;
   activeSource = 'all';
   document.querySelectorAll('.source-chip').forEach((item, index) => item.classList.toggle('active', index === 0));
   render();
