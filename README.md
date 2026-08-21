@@ -16,11 +16,25 @@ El CV se analiza localmente con un diccionario ampliable de profesiones, habilid
 
 ## Ejecutar localmente
 
+1. Instala dependencias:
+
 ```bash
-python3 -m http.server 8788
+npm install
+```
+
+2. Inicia el entorno de Cloudflare Pages para que también funcione la API:
+
+```bash
+npm run dev
 ```
 
 Visita `http://localhost:8788`.
+
+Para solo servir el front-end estático:
+
+```bash
+npm run start
+```
 
 ## Desplegar en Cloudflare Pages
 

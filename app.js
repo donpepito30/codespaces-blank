@@ -35,7 +35,7 @@ function render() {
   const mode = $('#modeFilter').value;
   const filtered = catalog
     .filter((job) => (activeSource === 'all' || normalize(job.source) === normalize(activeSource)))
-    .filter((job) => !term || normalize(`${job.title} ${job.company} ${job.location} ${job.skills?.join(' ')}`).includes(term))
+    .filter((job) => !term || normalize(`${job.title} ${job.company} ${job.location} ${job.description || ''} ${job.skills?.join(' ')}`).includes(term))
     .filter((job) => location === 'all' || normalize(job.location).includes(normalize(location)))
     .filter((job) => mode === 'all' || job.mode === mode)
     .sort((first, second) => (score(second) || 0) - (score(first) || 0));

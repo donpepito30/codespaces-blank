@@ -37,15 +37,30 @@ function normalizePosting(posting, source, fallbackUrl) {
   return { title: decodeHtml(posting.title || 'Vacante'), company: decodeHtml(company || source.label), location: decodeHtml(address || 'Ecuador'), mode: posting.jobLocationType === 'TELECOMMUTE' ? 'Remoto' : 'Presencial', source: source.label, skills, posted: posting.datePosted || 'Reciente', url: posting.url || fallbackUrl, description: description.slice(0, 500) };
 }
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchText(url) {
-  const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT, Accept: 'text/html' } });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const response = await fetchWithTimeout(url, { headers: { 'User-Agent': USER_AGENT, Accept: 'text/html' } });
   return response.text();
 }
 
 async function fetchFormText(url, fields) {
-  const response = await fetch(url, { method: 'POST', headers: { 'User-Agent': USER_AGENT, Accept: 'text/html', 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(fields) });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const response = await fetchWithTimeout(url, {
+    method: 'POST',
+    headers: { 'User-Agent': USER_AGENT, Accept: 'text/html', 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(fields)
+  });
   return response.text();
 }
 
@@ -125,10 +140,21 @@ export async function onRequestGet(context) {
   const edgeCache = caches.default;
   const cached = await edgeCache.match(cacheKey);
   if (cached) return new Response(cached.body, { status: cached.status, headers: { ...Object.fromEntries(cached.headers), 'X-Andes-Cache': 'HIT' } });
+
   const results = await Promise.allSettled(keys.map((key) => key === 'computrabajo' ? fetchComputrabajo(query) : key === 'unmejor' ? fetchUnMejorEmpleo(query) : fetchSource(key, query)));
-  const jobs = results.flatMap((result) => result.status === 'fulfilled' ? result.value : []);
-  const errors = results.map((result, index) => result.status === 'rejected' ? { source: keys[index], error: result.reason.message } : null).filter(Boolean);
-  const response = Response.json({ query, jobs, errors, fetchedAt: new Date().toISOString(), refreshAfter: new Date(Date.now() + 14400000).toISOString() }, { headers: { 'Cache-Control': 'public, max-age=60, s-maxage=14400', 'X-Andes-Cache': 'MISS' } });
+  const jobs = results.flatMap((result) => result.status === 'fulfilled' ? result.value : []).slice(0, 40);
+  const errors = results.map((result, index) => result.status === 'rejected' ? { source: keys[index], error: result.reason?.message || 'Error desconocido' } : null).filter(Boolean);
+
+  const response = Response.json({
+    query,
+    jobs,
+    errors,
+    fetchedAt: new Date().toISOString(),
+    refreshAfter: new Date(Date.now() + 14400000).toISOString()
+  }, {
+    headers: { 'Cache-Control': 'public, max-age=60, s-maxage=14400', 'X-Andes-Cache': 'MISS' }
+  });
+
   context.waitUntil(edgeCache.put(cacheKey, response.clone()));
   return response;
 }

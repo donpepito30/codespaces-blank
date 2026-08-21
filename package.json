@@ -1,0 +1,13 @@
+{
+  "name": "andes-radar",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "wrangler pages dev . --port 8788",
+    "start": "python3 -m http.server 8788",
+    "deploy": "wrangler pages deploy . --project-name andes-radar"
+  },
+  "devDependencies": {
+    "wrangler": "^4.125.0"
+  }
+}
