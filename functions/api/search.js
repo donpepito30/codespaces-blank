@@ -4,10 +4,11 @@ const SOURCES = {
   unjobnet: { label: 'UNJobNet', origin: 'https://www.unjobnet.org', search: 'https://www.unjobnet.org/jobs', pattern: /\/jobs\/[^"'#?]+/i },
   oas: { label: 'OEA/CIDH', origin: 'https://www.oas.org', search: 'https://www.oas.org/es/cidh/jsForm/?File=/es/cidh/empleos/empleos.asp', pattern: /\/es\/cidh\/empleos\/[^"'#?]+\.asp/i },
   unicef: { label: 'UNICEF', origin: 'https://jobs.unicef.org', search: 'https://jobs.unicef.org/en-us/listing/', pattern: /\/en-us\/job\/\d+\/[^"'#?]+/i },
-  unfpa: { label: 'UNFPA Ecuador', origin: 'https://ecuador.unfpa.org', search: 'https://ecuador.unfpa.org/es/vacancies?field_date_value=2026&title=', pattern: /\/es\/vacancies\/[^"'#?]+/i }
+  unfpa: { label: 'UNFPA Ecuador', origin: 'https://ecuador.unfpa.org', search: 'https://ecuador.unfpa.org/es/vacancies?field_date_value=2026&title=', pattern: /\/es\/vacancies\/[^"'#?]+/i },
+  unmejor: { label: 'Un Mejor Empleo', origin: 'https://www.unmejorempleo.com.ec', search: 'https://www.unmejorempleo.com.ec/empleos', pattern: /empleo-en-[^"'#?]+\.html/i }
 };
 const SOURCE_GROUPS = {
-  local: ['computrabajo', 'oas', 'unfpa'],
+  local: ['computrabajo', 'oas', 'unfpa', 'unmejor'],
   international: ['impactpool', 'unjobnet', 'unicef']
 };
 const SKILL_TERMS = ['psicologia', 'psicologia familiar', 'psicoterapia', 'terapia familiar', 'salud mental', 'intervencion en crisis', 'orientacion familiar', 'evaluacion psicologica', 'psicologia clinica', 'psicologia educativa', 'trabajo social', 'mediacion', 'violencia de genero', 'proteccion infantil', 'derechos humanos', 'acompanamiento psicosocial', 'consejeria', 'recursos humanos', 'project management', 'excel', 'sql', 'python', 'javascript', 'react', 'java', 'aws', 'docker', 'marketing', 'seo', 'analytics', 'liderazgo'];
@@ -38,6 +39,12 @@ function normalizePosting(posting, source, fallbackUrl) {
 
 async function fetchText(url) {
   const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT, Accept: 'text/html' } });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.text();
+}
+
+async function fetchFormText(url, fields) {
+  const response = await fetch(url, { method: 'POST', headers: { 'User-Agent': USER_AGENT, Accept: 'text/html', 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(fields) });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.text();
 }
@@ -88,6 +95,22 @@ async function fetchComputrabajo(query) {
   return jobs;
 }
 
+async function fetchUnMejorEmpleo(query) {
+  const source = SOURCES.unmejor;
+  const html = await fetchFormText(source.search, { palabra_clave: query, ubicacion: 'Ecuador', enviado: '1' });
+  const jobs = [];
+  for (const match of html.matchAll(/href=["'](empleo-en-[^"'#?]+\.html)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    const title = decodeHtml(match[2]);
+    if (!title || /ver oferta|empresa|provincia/i.test(title)) continue;
+    const start = Math.max(0, match.index - 100);
+    const context = decodeHtml(html.slice(start, match.index + match[0].length + 700));
+    const location = context.match(/Ubicaci[oó]n:\s*([^|]+)\|\s*Provincia\s*:\s*([^<]+)/i);
+    jobs.push({ title, company: source.label, location: location ? `${location[1].trim()}, ${location[2].trim()}` : 'Ecuador', mode: 'No especificada', source: source.label, skills: SKILL_TERMS.filter((skill) => `${title} ${context}`.toLowerCase().includes(skill)), posted: 'Reciente', url: new URL(match[1], source.origin).href, description: context.slice(0, 500) });
+    if (jobs.length === 10) break;
+  }
+  return jobs;
+}
+
 export async function onRequestGet(context) {
   const params = new URL(context.request.url).searchParams;
   const query = params.get('q')?.trim() || 'empleo';
@@ -102,7 +125,7 @@ export async function onRequestGet(context) {
   const edgeCache = caches.default;
   const cached = await edgeCache.match(cacheKey);
   if (cached) return new Response(cached.body, { status: cached.status, headers: { ...Object.fromEntries(cached.headers), 'X-Andes-Cache': 'HIT' } });
-  const results = await Promise.allSettled(keys.map((key) => key === 'computrabajo' ? fetchComputrabajo(query) : fetchSource(key, query)));
+  const results = await Promise.allSettled(keys.map((key) => key === 'computrabajo' ? fetchComputrabajo(query) : key === 'unmejor' ? fetchUnMejorEmpleo(query) : fetchSource(key, query)));
   const jobs = results.flatMap((result) => result.status === 'fulfilled' ? result.value : []);
   const errors = results.map((result, index) => result.status === 'rejected' ? { source: keys[index], error: result.reason.message } : null).filter(Boolean);
   const response = Response.json({ query, jobs, errors, fetchedAt: new Date().toISOString(), refreshAfter: new Date(Date.now() + 14400000).toISOString() }, { headers: { 'Cache-Control': 'public, max-age=60, s-maxage=14400', 'X-Andes-Cache': 'MISS' } });

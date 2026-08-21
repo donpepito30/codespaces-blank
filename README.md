@@ -2,7 +2,7 @@
 
 Aplicación para explorar oportunidades públicas de trabajo en Ecuador y cotejarlas con un curriculum. El análisis del CV ocurre en el navegador: el archivo no se sube ni se guarda.
 
-La búsqueda en vivo usa una Cloudflare Pages Function en `/api/search` para consultar Computrabajo, Impactpool, UNJobNet, OEA/CIDH, UNICEF y UNFPA Ecuador. Cada adaptador extrae enlaces públicos y, cuando existe, datos `JobPosting` en JSON-LD. Si una fuente no responde, las demás continúan disponibles y la interfaz conserva un catálogo local de respaldo para desarrollo.
+La búsqueda en vivo usa una Cloudflare Pages Function en `/api/search` para consultar Computrabajo, Un Mejor Empleo, Impactpool, UNJobNet, OEA/CIDH, UNICEF y UNFPA Ecuador. Cada adaptador extrae enlaces públicos y, cuando existe, datos `JobPosting` en JSON-LD. Si una fuente no responde, las demás continúan disponibles y la interfaz conserva un catálogo local de respaldo para desarrollo.
 
 ## Flujo del usuario
 
@@ -43,4 +43,4 @@ npx wrangler pages dev .
 
 ## Fuentes y alcance
 
-Las fuentes conectadas son Computrabajo, Impactpool, UNJobNet, OEA/CIDH, UNICEF y UNFPA Ecuador. ReliefWeb fue descartada del scraping HTML porque AWS WAF presenta un desafío; debe integrarse mediante su API pública. Indeed, Buscojobs y Jooble también requieren API, feed o autorización del proveedor. No se deben evadir CAPTCHA, Cloudflare ni AWS WAF. La función usa caché edge de Cloudflare durante 4 horas (`14.400` segundos) por consulta y alcance. `X-Andes-Cache: HIT` indica una respuesta cacheada y `MISS` una actualización. Cada actualización limita el detalle a 10 ofertas por fuente y consulta.
+Las fuentes conectadas son Computrabajo, Un Mejor Empleo, Impactpool, UNJobNet, OEA/CIDH, UNICEF y UNFPA Ecuador. ReliefWeb fue descartada del scraping HTML porque AWS WAF presenta un desafío; debe integrarse mediante su API pública. Indeed, Buscojobs y Jooble también requieren API, feed o autorización del proveedor. No se deben evadir CAPTCHA, Cloudflare ni AWS WAF. La función usa caché edge de Cloudflare durante 4 horas (`14.400` segundos) por consulta y alcance. `X-Andes-Cache: HIT` indica una respuesta cacheada y `MISS` una actualización. Cada actualización limita el detalle a 10 ofertas por fuente y consulta.
